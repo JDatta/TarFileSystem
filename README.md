@@ -61,7 +61,8 @@ To access a file inside a TAR archive, append the name of the file after the TAR
 
 In TAR File System, the TAR archive is modeled like a directory and all the files inside a TAR are modeled like files within a directory. One can run mapreduce jobs on files within a TAR archive just like they do it on normal files.
 
-	[jd@morpheus hadoop-1.0.3]$ bin/hadoop jar hadoop*examples*.jar wordcount ↲ tar:///tardemo/archive.tar wc_out
+	[jd@morpheus hadoop-1.0.3]$ bin/hadoop jar hadoop*examples*.jar wordcount ↲ 
+	tar:///tardemo/archive.tar wc_out
 	13/07/15 20:43:05 INFO tar.TarFileSystem: *** Using Tar file system ***
 	13/07/15 20:43:05 INFO input.FileInputFormat: Total input paths to process : 3
 	13/07/15 20:43:05 INFO mapred.JobClient: Running job: job_201307151954_0001

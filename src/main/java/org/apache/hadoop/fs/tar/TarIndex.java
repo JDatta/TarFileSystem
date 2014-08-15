@@ -35,217 +35,226 @@ import org.apache.hadoop.security.AccessControlException;
 
 /**
  * Creates a Index out of a Tar file. Also stores the index in a index file.
+ *
  * @author joydip
  *
  */
 public class TarIndex {
 
-	private HashMap<String, IndexEntry>	index	= new HashMap<String, IndexEntry>();
+  private HashMap<String, IndexEntry> index = new HashMap<String, IndexEntry>();
 
-	public static final Log LOG = LogFactory.getLog(TarIndex.class);
-	public static final String INDEX_EXT = ".index";
-	
-	private static class IndexEntry {
-		long size;
-		long offset;
-		public IndexEntry(long size, long offset) {
-			this.size = size;
-			this.offset = offset;
-		}
-	}
+  public static final Log LOG = LogFactory.getLog(TarIndex.class);
+  public static final String INDEX_EXT = ".index";
 
-	public TarIndex(FileSystem fs, Path tarPath) throws IOException {
-		this(fs, tarPath, true, new Configuration());
-	}
+  private static class IndexEntry {
 
-	/**
-	 * Creates a Index out of a tar file. 
-	 * Index is a MAP between Filename->start_offset
-	 * 
-	 * @param fs Underlying Hadoop FileSystem
-	 * @param tarPath Path to the Tar file
-	 * @param isWrite should I write the index to a file
-	 * @throws IOException
-	 */
-	public TarIndex(FileSystem fs, Path tarPath, boolean isWrite, Configuration conf) throws IOException {
+    long size;
+    long offset;
 
-		Path indexPath = getIndexPath(tarPath);
-		Path altIndexP = getAltIndexPath(tarPath, conf);
+    public IndexEntry(long size, long offset) {
+      this.size = size;
+      this.offset = offset;
+    }
+  }
 
-		boolean readOK = false;
-		readOK = readIndexFile(fs, indexPath);
+  public TarIndex(FileSystem fs, Path tarPath) throws IOException {
+    this(fs, tarPath, true, new Configuration());
+  }
 
-		if (readOK == false)
-			readOK = readIndexFile(fs, altIndexP);
+  /**
+   * Creates a Index out of a tar file. Index is a MAP between
+   * Filename->start_offset
+   *
+   * @param fs
+   *          Underlying Hadoop FileSystem
+   * @param tarPath
+   *          Path to the Tar file
+   * @param isWrite
+   *          should I write the index to a file
+   * @throws IOException
+   */
+  public TarIndex(FileSystem fs, Path tarPath, boolean isWrite,
+      Configuration conf) throws IOException {
 
-		if (readOK == false) {
-			FSDataInputStream is = fs.open(tarPath);
-			byte[] buffer = new byte[512];
+    Path indexPath = getIndexPath(tarPath);
+    Path altIndexP = getAltIndexPath(tarPath, conf);
 
-			while(true) {
-				int bytesRead = is.read(buffer);
-				if (bytesRead == -1)
-					break;
-				if (bytesRead < 512)
-					throw new IOException("Could not read the full header.");
+    boolean readOK = false;
+    readOK = readIndexFile(fs, indexPath);
 
-				long currOffset = is.getPos();
-				TarArchiveEntry entry = new TarArchiveEntry(buffer);
+    if (readOK == false)
+      readOK = readIndexFile(fs, altIndexP);
 
-				// Index only normal files. Do not support directories yet.
-				if (entry.isFile()) {
-					String name =  entry.getName().trim();
-					if (!name.equals("")) {
-						IndexEntry ie = new IndexEntry(entry.getSize(), currOffset);
-						index.put(name, ie);
-					}					
-				}
+    if (readOK == false) {
+      FSDataInputStream is = fs.open(tarPath);
+      byte[] buffer = new byte[512];
 
-				long nextOffset = currOffset + entry.getSize();
-				if (nextOffset%512 != 0)
-					nextOffset = ((nextOffset/512)+1)*512;
-				is.seek(nextOffset);
-			}
-			is.close();
+      while (true) {
+        int bytesRead = is.read(buffer);
+        if (bytesRead == -1)
+          break;
+        if (bytesRead < 512)
+          throw new IOException("Could not read the full header.");
 
-			if (isWrite) {
-				boolean writeOK = writeIndex(fs, indexPath);
+        long currOffset = is.getPos();
+        TarArchiveEntry entry = new TarArchiveEntry(buffer);
 
-				if (writeOK == false && altIndexP != null)
-					writeOK = 	writeIndex(fs, altIndexP);
-				
-				if (writeOK == false) {
-					Path p = altIndexP==null?indexPath:altIndexP;
-					
-					LOG.error("Could not create INDEX file "+p.toUri());
-					if (altIndexP == null)
-						LOG.error("You can specify alternate location for index" +
-								" creation using tarfs.tmp.dir property.");
-					
-					LOG.error("Skipping writing index file.");
-				}
-			}
-		}
-	}	
+        // Index only normal files. Do not support directories yet.
+        if (entry.isFile()) {
+          String name = entry.getName().trim();
+          if (!name.equals("")) {
+            IndexEntry ie = new IndexEntry(entry.getSize(), currOffset);
+            index.put(name, ie);
+          }
+        }
 
-	private Path getIndexPath(Path tarPath){
-		return new Path(tarPath.toUri()+INDEX_EXT);
-	}
+        long nextOffset = currOffset + entry.getSize();
+        if (nextOffset % 512 != 0)
+          nextOffset = ((nextOffset / 512) + 1) * 512;
+        is.seek(nextOffset);
+      }
+      is.close();
 
-	private Path getAltIndexPath(Path tarPath, Configuration conf) {
-		String tmp	= conf.get("tarfs.tmp.dir", null);
-		if (tmp == null)
-			return null;
-		else
-			return new Path(tmp+Path.SEPARATOR+tarPath+INDEX_EXT);
-	}
+      if (isWrite) {
+        boolean writeOK = writeIndex(fs, indexPath);
 
-	/**
-	 * Writes the index map to a file
-	 * @param fs
-	 * @param indexPath
-	 * @throws IOException
-	 */
-	private boolean writeIndex(FileSystem fs, Path indexPath) throws IOException {
+        if (writeOK == false && altIndexP != null)
+          writeOK = writeIndex(fs, altIndexP);
 
-		if (fs.exists(indexPath)) {
-			LOG.error("Index file already exists. Skipping writing index.");
-			return false;
-		}
+        if (writeOK == false) {
+          Path p = altIndexP == null ? indexPath : altIndexP;
 
-		OutputStream os = null;
-		PrintWriter out = null;
+          LOG.error("Could not create INDEX file " + p.toUri());
+          if (altIndexP == null)
+            LOG.error("You can specify alternate location for index" +
+                " creation using tarfs.tmp.dir property.");
 
-		try {
-			fs.mkdirs(indexPath.getParent());
-			os	= fs.create(indexPath);
-			out	= new PrintWriter(os);
+          LOG.error("Skipping writing index file.");
+        }
+      }
+    }
+  }
 
-			for(String name: index.keySet()) {
-				IndexEntry ie = index.get(name);
-				out.println(name + " " + ie.size + " " + ie.offset);
-			}
-			return true;
-		} catch (AccessControlException e) {
-			//LOG.error("Can not open Index file for writing "+indexPath+" "+e.getMessage());
-			return false;
-		} finally {
-			if (out != null)
-				out.close();
-			if (os != null)
-				os.close();
-		}
-	}
+  private Path getIndexPath(Path tarPath) {
+    return new Path(tarPath.toUri() + INDEX_EXT);
+  }
 
-	private boolean readIndexFile(FileSystem fs, Path indexPath) throws IOException {
+  private Path getAltIndexPath(Path tarPath, Configuration conf) {
+    String tmp = conf.get("tarfs.tmp.dir", null);
+    if (tmp == null)
+      return null;
+    else
+      return new Path(tmp + Path.SEPARATOR + tarPath + INDEX_EXT);
+  }
 
-		if (indexPath == null || !fs.exists(indexPath))
-			return false;
+  /**
+   * Writes the index map to a file
+   *
+   * @param fs
+   * @param indexPath
+   * @throws IOException
+   */
+  private boolean writeIndex(FileSystem fs, Path indexPath) throws IOException {
 
-		FSDataInputStream is	= null;
-		Scanner s				= null;
+    if (fs.exists(indexPath)) {
+      LOG.error("Index file already exists. Skipping writing index.");
+      return false;
+    }
 
-		try {
-			is	= fs.open(indexPath);
-			s	= new Scanner(is);
+    OutputStream os = null;
+    PrintWriter out = null;
 
-			while (s.hasNextLine()) {
-				String[] tokens = s.nextLine().split(" ");
-				if (tokens.length != 3) {
-					LOG.error("Invalid Index File: "+indexPath);
-					return false;
-				}
+    try {
+      fs.mkdirs(indexPath.getParent());
+      os = fs.create(indexPath);
+      out = new PrintWriter(os);
 
-				IndexEntry ie = new IndexEntry(
-						Long.parseLong(tokens[1]), 
-						Long.parseLong(tokens[2]));
-				index.put(tokens[0], ie);
-			}
-			return true;
-		} catch (AccessControlException e) {
-			LOG.error("Can not open Index file for reading "+indexPath+" "+e.getMessage());
-			return false;
-		} finally {
-			if (s != null)
-				s.close();
-			if (is != null)
-				is.close();
-		}
-	}
+      for (String name : index.keySet()) {
+        IndexEntry ie = index.get(name);
+        out.println(name + " " + ie.size + " " + ie.offset);
+      }
+      return true;
+    } catch (AccessControlException e) {
+      return false;
+    } finally {
+      if (out != null)
+        out.close();
+      if (os != null)
+        os.close();
+    }
+  }
 
-	private IndexEntry getIndexEntry(String name) throws IOException {
-		IndexEntry ie = index.get(name);
-		if (ie == null)
-			throw new IOException("Requested file \""
-					+name+"\" does not exist inside tar.");
-		return ie;
-	}
+  private boolean readIndexFile(FileSystem fs, Path indexPath)
+      throws IOException {
 
-	public long getOffset(String name) throws IOException {
-		return getIndexEntry(name).offset;
-	}
+    if (indexPath == null || !fs.exists(indexPath))
+      return false;
 
-	public long getSize(String name) throws IOException {
-		return getIndexEntry(name).size;
-	}
+    FSDataInputStream is = null;
+    Scanner s = null;
 
-	/**
-	 * return a sorted list of all offsets 
-	 */	
-	public long[] getOffsetList() {
-		long[] offsetArr = new long[index.size()];
-		int i = 0;
-		for (String name: index.keySet()) {
-			offsetArr[i++] = index.get(name).offset;
-		}
+    try {
+      is = fs.open(indexPath);
+      s = new Scanner(is);
 
-		// TBD: Could this sort be a bottleneck?
-		Arrays.sort(offsetArr);
-		return offsetArr;
-	}
+      while (s.hasNextLine()) {
+        String[] tokens = s.nextLine().split(" ");
+        if (tokens.length != 3) {
+          LOG.error("Invalid Index File: " + indexPath);
+          return false;
+        }
 
-	public String[] getFileList() {
-		String[] fileNames = new String[index.size()];
-		return index.keySet().toArray(fileNames);
-	}
+        IndexEntry ie = new IndexEntry(
+            Long.parseLong(tokens[1]),
+            Long.parseLong(tokens[2]));
+        index.put(tokens[0], ie);
+      }
+      return true;
+    } catch (AccessControlException e) {
+      LOG.error("Can not open Index file for reading " + indexPath + " "
+          + e.getMessage());
+      return false;
+    } finally {
+      if (s != null)
+        s.close();
+      if (is != null)
+        is.close();
+    }
+  }
+
+  private IndexEntry getIndexEntry(String name) throws IOException {
+    IndexEntry ie = index.get(name);
+    if (ie == null)
+      throw new IOException("Requested file \""
+          + name + "\" does not exist inside tar.");
+    return ie;
+  }
+
+  public long getOffset(String name) throws IOException {
+    return getIndexEntry(name).offset;
+  }
+
+  public long getSize(String name) throws IOException {
+    return getIndexEntry(name).size;
+  }
+
+  /**
+   * return a sorted list of all offsets
+   */
+  public long[] getOffsetList() {
+    long[] offsetArr = new long[index.size()];
+    int i = 0;
+    for (String name : index.keySet()) {
+      offsetArr[i++] = index.get(name).offset;
+    }
+
+    // TBD: Could this sort be a bottleneck?
+    Arrays.sort(offsetArr);
+    return offsetArr;
+  }
+
+  public String[] getFileList() {
+    String[] fileNames = new String[index.size()];
+    return index.keySet().toArray(fileNames);
+  }
 }

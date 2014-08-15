@@ -27,71 +27,72 @@ import org.apache.hadoop.fs.FSInputStream;
 import org.apache.hadoop.fs.Seekable;
 
 /**
- * {@link TarArchiveInputStream} can not be used inside Hadoop 
- * as it does not implement {@link Seekable}. This class is a thin 
- * wrapper around it to make it Hadoop compatible. 
- * 
+ * {@link TarArchiveInputStream} can not be used inside Hadoop as it does not
+ * implement {@link Seekable}.
+ *
  * This implementation is independent of {@link TarArchiveInputStream}
- * TODO implement efficient seek
+ *
  * @author joydip
  *
  */
 public class SeekableTarInputStream extends FSInputStream {
-	FSDataInputStream	in;
-	final long			length;
-	final long			start;
-	long pos			= 0;
-	
-	public static final Log LOG = LogFactory.getLog(SeekableTarInputStream.class);
 
-	public SeekableTarInputStream(FSDataInputStream in, long size) throws IOException {
-		this.in = in;
-		this.length = size;
-		start = in.getPos();
-	}
-	
-	public SeekableTarInputStream(FSDataInputStream in, long size, long offset) 
-			throws IOException {
-		this.in = in;
-		this.length = size;
-		this.in.seek(offset);
-		this.start = in.getPos();
-	}
-	
-	@Override
-	public void seek(long desired) throws IOException {
-		if (desired > this.length) 
-			throw new IOException("Can not seek past EOF!");
-		
-		this.pos = desired;
-		in.seek(start + desired);
-	}
+  FSDataInputStream in;
+  final long length;
+  final long start;
+  long pos = 0;
 
-	/**
-	 * Returns the position within a TAR internal file
-	 */
-	@Override
-	public long getPos() throws IOException {
-		return pos;
-	}
+  public static final Log LOG = LogFactory.getLog(SeekableTarInputStream.class);
 
-	@Override
-	public boolean seekToNewSource(long targetPos) throws IOException {
-		return false;
-	}
+  public SeekableTarInputStream(FSDataInputStream in, long size)
+      throws IOException {
+    this.in = in;
+    this.length = size;
+    start = in.getPos();
+  }
 
-	@Override
-	public int read() throws IOException {
-		if ((this.pos+1) > this.length) {
-			return -1;
-		}
-		this.pos += 1;
-		return in.read();
-	}
+  public SeekableTarInputStream(FSDataInputStream in, long size, long offset)
+      throws IOException {
+    this.in = in;
+    this.length = size;
+    this.in.seek(offset);
+    this.start = in.getPos();
+  }
 
-	@Override
-	public void close() throws IOException {
-		super.close();
-		in.close();
-	}
+  @Override
+  public void seek(long desired) throws IOException {
+    if (desired > this.length)
+      throw new IOException("Can not seek past EOF!");
+
+    this.pos = desired;
+    in.seek(start + desired);
+  }
+
+  /**
+   * Returns the position within a TAR internal file
+   */
+  @Override
+  public long getPos() throws IOException {
+    return pos;
+  }
+
+  @Override
+  public boolean seekToNewSource(long targetPos) throws IOException {
+    return false;
+  }
+
+  @Override
+  public int read() throws IOException {
+    if ((this.pos + 1) > this.length) {
+      return -1;
+    }
+    this.pos += 1;
+    return in.read();
+  }
+
+  @Override
+  public void close() throws IOException {
+    super.close();
+    in.close();
+  }
 }

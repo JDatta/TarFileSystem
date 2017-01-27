@@ -32,98 +32,104 @@ import org.apache.hadoop.fs.Path;
 
 /**
  * Common utilities for a TAR file system
+ *
  * @author joydip
  *
  */
 public class TarFSUtils {
 
-	public static FileSystem getHadoopFS(URI sample) 
-			throws URISyntaxException, IOException {
+  public static FileSystem getHadoopFS(URI sample)
+      throws URISyntaxException, IOException {
 
-		return getHadoopFS(sample, new Configuration());
-	}
+    return getHadoopFS(sample, new Configuration());
+  }
 
-	public static FileSystem getHadoopFS(URI sample, Configuration conf) 
-			throws IOException {
-		
-		return FileSystem.get(sample, conf);
-	}
+  public static FileSystem getHadoopFS(URI sample, Configuration conf)
+      throws IOException {
 
-	@Deprecated
-	public static FSDataInputStream openHadoopIS(FileSystem fs, URI file) 
-			throws IOException {
-		
-		Path f = new Path(file);
-		return fs.open(f);
-	}
+    return FileSystem.get(sample, conf);
+  }
 
-	@Deprecated
-	public static TarArchiveInputStream createTarInputStream(
-			FileSystem fs, String tarFile, long offset) 
-					throws URISyntaxException, IOException {
+  @Deprecated
+  public static FSDataInputStream openHadoopIS(FileSystem fs, URI file)
+      throws IOException {
 
-		return createTarInputStream(fs, new Path(tarFile), offset);
-	}
+    Path f = new Path(file);
+    return fs.open(f);
+  }
 
-	public static TarArchiveInputStream createTarInputStream(
-			FileSystem fs, Path tarPath, long offset) 
-					throws URISyntaxException, IOException {
+  @Deprecated
+  public static TarArchiveInputStream createTarInputStream(
+      FileSystem fs, String tarFile, long offset)
+      throws URISyntaxException, IOException {
 
-		FSDataInputStream fsdis = fs.open(tarPath);
-		fsdis.seek(offset);
-		return new TarArchiveInputStream(new BufferedInputStream(fsdis));
-	}
-	
-	@Deprecated
-	public static TarArchiveInputStream createTarInputStream(InputStream in) 
-			throws IOException {
-		return new TarArchiveInputStream(in);
-	}
+    return createTarInputStream(fs, new Path(tarFile), offset);
+  }
 
-	private static byte[] getFirstFewBytes(InputStream in, int n) throws IOException {
-		byte[] b = new byte[n];
+  public static TarArchiveInputStream createTarInputStream(
+      FileSystem fs, Path tarPath, long offset)
+      throws URISyntaxException, IOException {
 
-		if (in.markSupported()) {
-			in.mark(n);
-			int bytesRead = in.read(b);
-			in.reset();
-			
-			if (bytesRead < n)
-				return null;
-		}
-		else
-			throw new IOException("Mark must be supported");
-		
-		return b;
-	}
-	
-	/**
-	 * Returns true if the file pointed by filename is a valid gunzip compressed file.
-	 * @param filename
-	 * @param in an inputstream to the file.
-	 * @return
-	 * @throws IOException
-	 */
-	public static boolean isGZ(String filename, InputStream in) throws IOException {
+    FSDataInputStream fsdis = fs.open(tarPath);
+    fsdis.seek(offset);
+    return new TarArchiveInputStream(new BufferedInputStream(fsdis));
+  }
 
-		File f = new File(filename);
-		if (!f.isFile())
-			return false;
+  @Deprecated
+  public static TarArchiveInputStream createTarInputStream(InputStream in)
+      throws IOException {
+    return new TarArchiveInputStream(in);
+  }
 
-		if (filename.endsWith(".gz") || filename.endsWith(".tgz")) {
-			byte[] b = getFirstFewBytes(in, 3);
-			if (b == null)
-				return false;
-			
-			if ((b[0] & 0xff) == 0x1f && (b[1] & 0xff) == 0x8b)
-				return true;
-			else
-				return false;
-		}
+  private static byte[] getFirstFewBytes(InputStream in, int n)
+      throws IOException {
+    byte[] b = new byte[n];
 
-		else 
-			return false;
+    if (in.markSupported()) {
+      in.mark(n);
+      int bytesRead = in.read(b);
+      in.reset();
 
-	}
+      if (bytesRead < n)
+        return null;
+    }
+    else
+      throw new IOException("Mark must be supported");
+
+    return b;
+  }
+
+  /**
+   * Returns true if the file pointed by filename is a valid gunzip compressed
+   * file.
+   *
+   * @param filename
+   * @param in
+   *          an inputstream to the file.
+   * @return
+   * @throws IOException
+   */
+  public static boolean isGZ(String filename, InputStream in)
+      throws IOException {
+
+    File f = new File(filename);
+    if (!f.isFile())
+      return false;
+
+    if (filename.endsWith(".gz") || filename.endsWith(".tgz")) {
+      byte[] b = getFirstFewBytes(in, 3);
+      if (b == null)
+        return false;
+
+      if ((b[0] & 0xff) == 0x1f && (b[1] & 0xff) == 0x8b)
+        return true;
+      else
+        return false;
+    }
+
+    else
+      return false;
+
+  }
 
 }

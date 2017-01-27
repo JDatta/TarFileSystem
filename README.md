@@ -68,3 +68,7 @@ In TAR File System, the TAR archive is modeled like a directory and all the file
 	13/07/15 20:43:05 INFO mapred.JobClient: Running job: job_201307151954_0001
 	13/07/15 20:43:06 INFO mapred.JobClient:  map 0% reduce 0%
 	 [...]
+
+# TO DO
+  1. Implement efficient seek in SeekableTarInputStream
+

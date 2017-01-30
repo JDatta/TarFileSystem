@@ -61,6 +61,7 @@ public class TarFileSystem extends FileSystem {
 
   private static final String TAR_URLPREFIX = "tar:/";
   private static final char TAR_INFILESEP = '+';
+  private static final String TAR_INFILESEP_STR = "\\+";
 
   public static final Log LOG = LogFactory.getLog(TarFileSystem.class);
 
@@ -97,10 +98,11 @@ public class TarFileSystem extends FileSystem {
 
   private String getFileInArchive(Path tarPath) {
     String fullUri = tarPath.toUri().toString();
-    int i = fullUri.lastIndexOf(TAR_INFILESEP);
+    int i = fullUri.indexOf(TAR_INFILESEP);
     if (i == -1)
       return null;
-    return fullUri.substring(i + 1);
+    return fullUri.substring(i + 1)
+      .replaceAll(TAR_INFILESEP_STR, Path.SEPARATOR);
   }
 
   /**
@@ -123,7 +125,7 @@ public class TarFileSystem extends FileSystem {
     // form the path component
     String basePath = uri.getPath();
     // strip the part containing inFile name
-    int lastPlusIndex = basePath.lastIndexOf(TAR_INFILESEP);
+    int lastPlusIndex = basePath.indexOf(TAR_INFILESEP);
     if (lastPlusIndex != -1)
       basePath = basePath.substring(0, lastPlusIndex);
 
@@ -226,10 +228,11 @@ public class TarFileSystem extends FileSystem {
             entry.getUserName(),
             entry.getGroupName(),
             new Path(
-                abs.toUri().toASCIIString()
-                    + TAR_INFILESEP + entry.getName()
-            )
-            );
+              abs.toUri().toASCIIString()
+                + Path.SEPARATOR
+                + TAR_INFILESEP
+                + entry.getName()
+                  .replaceAll(Path.SEPARATOR, TAR_INFILESEP_STR)));
         ret.add(fstatus);
       }
     }

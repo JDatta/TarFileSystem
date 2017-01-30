@@ -31,7 +31,7 @@ public abstract class TarFileSystemTestFramework {
   }
 
   @Before
-  public void getTarFs() throws IOException {
+  public void setup() throws IOException {
 
     testTarFile = File.createTempFile("/tmp/", ".tar");
     testTarPath = new Path("tar://"+testTarFile.getAbsolutePath());

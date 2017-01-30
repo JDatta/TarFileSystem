@@ -59,7 +59,7 @@ public class TarFileSystem extends FileSystem {
   private FileSystem underlyingFS = null;
   private Path workingDir;
 
-  private static final String TAR_URLPREFIX = "tar://";
+  private static final String TAR_URLPREFIX = "tar:/";
   private static final char TAR_INFILESEP = '+';
 
   public static final Log LOG = LogFactory.getLog(TarFileSystem.class);

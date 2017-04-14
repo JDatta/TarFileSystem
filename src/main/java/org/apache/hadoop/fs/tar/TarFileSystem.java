@@ -215,7 +215,6 @@ public class TarFileSystem extends FileSystem {
       for (long offset : index.getOffsetList()) {
         in.seek(offset - 512); // adjust for the header
         TarArchiveEntry entry = readHeaderEntry(in, buffer);
-
         // Construct a FileStatus object
         FileStatus fstatus = new FileStatus(
             entry.getSize(),
@@ -235,6 +234,8 @@ public class TarFileSystem extends FileSystem {
                   .replaceAll(Path.SEPARATOR, TAR_INFILESEP_STR)));
         ret.add(fstatus);
       }
+      
+      in.close();
     }
 
     // copy back
@@ -284,7 +285,8 @@ public class TarFileSystem extends FileSystem {
       FSDataInputStream in = underlyingFS.open(baseTar);
       in.seek(offset - 512);
       TarArchiveEntry entry = readHeaderEntry(in);
-
+      in.close();
+      
       if (!entry.getName().equals(inFile)) {
         LOG.fatal(
             "Index file is corrupt." +

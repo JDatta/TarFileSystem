@@ -209,33 +209,36 @@ public class TarFileSystem extends FileSystem {
     }
 
     else {
-      FSDataInputStream in = underlyingFS.open(baseTar);
-      byte[] buffer = new byte[512];
+    	FSDataInputStream in = underlyingFS.open(baseTar);
+      try {
+      	byte[] buffer = new byte[512];
 
-      for (long offset : index.getOffsetList()) {
-        in.seek(offset - 512); // adjust for the header
-        TarArchiveEntry entry = readHeaderEntry(in, buffer);
-        // Construct a FileStatus object
-        FileStatus fstatus = new FileStatus(
-            entry.getSize(),
-            entry.isDirectory(),
-            (int) underlying.getReplication(),
-            underlying.getBlockSize(),
-            entry.getModTime().getTime(),
-            underlying.getAccessTime(),
-            new FsPermission((short) entry.getMode()),
-            entry.getUserName(),
-            entry.getGroupName(),
-            new Path(
-              abs.toUri().toASCIIString()
-                + Path.SEPARATOR
-                + TAR_INFILESEP
-                + entry.getName()
-                  .replaceAll(Path.SEPARATOR, TAR_INFILESEP_STR)));
-        ret.add(fstatus);
+      	for (long offset : index.getOffsetList()) {
+      		in.seek(offset - 512); // adjust for the header
+      		TarArchiveEntry entry = readHeaderEntry(in, buffer);
+      		// Construct a FileStatus object
+      		FileStatus fstatus = new FileStatus(
+      				entry.getSize(),
+      				entry.isDirectory(),
+      				(int) underlying.getReplication(),
+      				underlying.getBlockSize(),
+      				entry.getModTime().getTime(),
+      				underlying.getAccessTime(),
+      				new FsPermission((short) entry.getMode()),
+      				entry.getUserName(),
+      				entry.getGroupName(),
+      				new Path(
+      						abs.toUri().toASCIIString()
+      						+ Path.SEPARATOR
+      						+ TAR_INFILESEP
+      						+ entry.getName()
+                  	.replaceAll(Path.SEPARATOR, TAR_INFILESEP_STR)));
+      		ret.add(fstatus);
+      	}
       }
-      
-      in.close();
+      finally {
+      	org.apache.commons.io.IOUtils.closeQuietly(in);
+      }
     }
 
     // copy back
@@ -283,32 +286,38 @@ public class TarFileSystem extends FileSystem {
       long offset = index.getOffset(inFile);
 
       FSDataInputStream in = underlyingFS.open(baseTar);
-      in.seek(offset - 512);
-      TarArchiveEntry entry = readHeaderEntry(in);
-      in.close();
+      try {
+      	in.seek(offset - 512);
+      	TarArchiveEntry entry = readHeaderEntry(in);
       
-      if (!entry.getName().equals(inFile)) {
-        LOG.fatal(
-            "Index file is corrupt." +
-                "Requested filename is present in index " +
-                "but absent in TAR.");
-        throw new IOException("NBU-TAR: FATAL: entry file name " +
-            "does not match requested file name");
-      }
+      
+      	if (!entry.getName().equals(inFile)) {
+      		LOG.fatal(
+      				"Index file is corrupt." +
+      						"Requested filename is present in index " +
+                	"but absent in TAR.");
+      		throw new IOException("NBU-TAR: FATAL: entry file name " +
+      				"does not match requested file name");
+      	}
 
-      // Construct a FileStatus object
-      fstatus = new FileStatus(
-          entry.getSize(),
-          entry.isDirectory(),
-          (int) underlying.getReplication(),
-          underlying.getBlockSize(),
-          entry.getModTime().getTime(),
-          underlying.getAccessTime(),
-          new FsPermission((short) entry.getMode()),
-          entry.getUserName(),
-          entry.getGroupName(),
-          abs);
+      	// Construct a FileStatus object
+      	fstatus = new FileStatus(
+	          entry.getSize(),
+	          entry.isDirectory(),
+	          (int) underlying.getReplication(),
+	          underlying.getBlockSize(),
+	          entry.getModTime().getTime(),
+	          underlying.getAccessTime(),
+	          new FsPermission((short) entry.getMode()),
+	          entry.getUserName(),
+	          entry.getGroupName(),
+	          abs);
+      }
+      finally {
+      	org.apache.commons.io.IOUtils.closeQuietly(in);
+      }
     }
+
     return fstatus;
   }
 

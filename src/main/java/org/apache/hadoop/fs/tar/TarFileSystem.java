@@ -1,13 +1,13 @@
 /**
  * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
+ * or more contributor license agreements. See the NOTICE file
  * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
+ * regarding copyright ownership. The ASF licenses this file
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+ * with the License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -24,6 +24,7 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
+import org.apache.commons.io.IOUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
@@ -41,7 +42,8 @@ import org.apache.hadoop.util.Progressable;
  * containing files. Sub-directories are not yet supported. Tar files can be
  * specified using following sample URI schema <br/>
  *
- * tar://hdfs-namenode:port/tarfile.tar (the whole tar.. treated as a directory)<br/>
+ * tar://hdfs-namenode:port/tarfile.tar (the whole tar.. treated as a
+ * directory)<br/>
  * tar://hdfs-namenode:port/tarfile.tar+somefile.txt <br/>
  * <ul>
  * <li>TODO subdirectories within a tar is not yet supported</li>
@@ -71,11 +73,11 @@ public class TarFileSystem extends FileSystem {
     super.initialize(name, conf);
 
     this.underlyingFS = TarFSUtils.getHadoopFS(
-        getBaseTarPath(new Path(name)).toUri(),
-        conf);
+      getBaseTarPath(new Path(name)).toUri(),
+      conf);
     this.index = new TarIndex(
-        underlyingFS,
-        getBaseTarPath(new Path(name)), true, conf);
+      underlyingFS,
+      getBaseTarPath(new Path(name)), true, conf);
 
     initURI(name, conf);
     setConf(conf);
@@ -85,8 +87,7 @@ public class TarFileSystem extends FileSystem {
     if (name.getAuthority() != null) {
       String uriStr = name.getScheme() + "://" + name.getAuthority();
       this.uri = URI.create(uriStr);
-    }
-    else {
+    } else {
       this.uri = URI.create(name.getScheme() + ":///");
     }
   }
@@ -161,33 +162,33 @@ public class TarFileSystem extends FileSystem {
     TarArchiveEntry entry = readHeaderEntry(in);
     if (!entry.getName().equals(inFile)) {
       LOG.fatal(
-          "Index file is corrupt." +
+        "Index file is corrupt." +
           "Requested filename is present in index " +
           "but absent in TAR.");
       throw new IOException("Requested filename does not match ");
     }
 
     return new FSDataInputStream(
-        new BufferedFSInputStream(
-            new SeekableTarInputStream(in, size, offset),
-            bufferSize));
+      new BufferedFSInputStream(
+        new SeekableTarInputStream(in, size, offset),
+        bufferSize));
   }
 
   private TarArchiveEntry readHeaderEntry(InputStream is)
-      throws IOException {
+    throws IOException {
     byte[] buffer = new byte[512];
     readHeaderBuffer(is, buffer);
     return new TarArchiveEntry(buffer);
   }
 
   private TarArchiveEntry readHeaderEntry(InputStream is, byte[] buffer)
-      throws IOException {
+    throws IOException {
     readHeaderBuffer(is, buffer);
     return new TarArchiveEntry(buffer);
   }
 
   private void readHeaderBuffer(InputStream is, byte[] buffer)
-      throws IOException {
+    throws IOException {
     int bytesRead = is.read(buffer);
     if (bytesRead == -1)
       throw new IOException("EOF Occurred while reading buffer.");
@@ -209,35 +210,34 @@ public class TarFileSystem extends FileSystem {
     }
 
     else {
-    	FSDataInputStream in = underlyingFS.open(baseTar);
+      FSDataInputStream in = underlyingFS.open(baseTar);
       try {
-      	byte[] buffer = new byte[512];
+        byte[] buffer = new byte[512];
 
-      	for (long offset : index.getOffsetList()) {
-      		in.seek(offset - 512); // adjust for the header
-      		TarArchiveEntry entry = readHeaderEntry(in, buffer);
-      		// Construct a FileStatus object
-      		FileStatus fstatus = new FileStatus(
-      				entry.getSize(),
-      				entry.isDirectory(),
-      				(int) underlying.getReplication(),
-      				underlying.getBlockSize(),
-      				entry.getModTime().getTime(),
-      				underlying.getAccessTime(),
-      				new FsPermission((short) entry.getMode()),
-      				entry.getUserName(),
-      				entry.getGroupName(),
-      				new Path(
-      						abs.toUri().toASCIIString()
-      						+ Path.SEPARATOR
-      						+ TAR_INFILESEP
-      						+ entry.getName()
-                  	.replaceAll(Path.SEPARATOR, TAR_INFILESEP_STR)));
-      		ret.add(fstatus);
-      	}
-      }
-      finally {
-      	org.apache.commons.io.IOUtils.closeQuietly(in);
+        for (long offset : index.getOffsetList()) {
+          in.seek(offset - 512); // adjust for the header
+          TarArchiveEntry entry = readHeaderEntry(in, buffer);
+          // Construct a FileStatus object
+          FileStatus fstatus = new FileStatus(
+            entry.getSize(),
+            entry.isDirectory(),
+            (int) underlying.getReplication(),
+            underlying.getBlockSize(),
+            entry.getModTime().getTime(),
+            underlying.getAccessTime(),
+            new FsPermission((short) entry.getMode()),
+            entry.getUserName(),
+            entry.getGroupName(),
+            new Path(
+              abs.toUri().toASCIIString()
+                + Path.SEPARATOR
+                + TAR_INFILESEP
+                + entry.getName()
+                  .replaceAll(Path.SEPARATOR, TAR_INFILESEP_STR)));
+          ret.add(fstatus);
+        }
+      } finally {
+        IOUtils.closeQuietly(in);
       }
     }
 
@@ -270,51 +270,47 @@ public class TarFileSystem extends FileSystem {
     if (inFile == null) {
       // return the status of the tar itself but make it a dir
       fstatus = new FileStatus(
-          underlying.getLen(),
-          true,
-          underlying.getReplication(),
-          underlying.getBlockSize(),
-          underlying.getModificationTime(),
-          underlying.getAccessTime(),
-          underlying.getPermission(),
-          underlying.getOwner(),
-          underlying.getGroup(),
-          abs);
-    }
-
-    else {
+        underlying.getLen(),
+        true,
+        underlying.getReplication(),
+        underlying.getBlockSize(),
+        underlying.getModificationTime(),
+        underlying.getAccessTime(),
+        underlying.getPermission(),
+        underlying.getOwner(),
+        underlying.getGroup(),
+        abs);
+    } else {
       long offset = index.getOffset(inFile);
 
       FSDataInputStream in = underlyingFS.open(baseTar);
       try {
-      	in.seek(offset - 512);
-      	TarArchiveEntry entry = readHeaderEntry(in);
-      
-      
-      	if (!entry.getName().equals(inFile)) {
-      		LOG.fatal(
-      				"Index file is corrupt." +
-      						"Requested filename is present in index " +
-                	"but absent in TAR.");
-      		throw new IOException("NBU-TAR: FATAL: entry file name " +
-      				"does not match requested file name");
-      	}
+        in.seek(offset - 512);
+        TarArchiveEntry entry = readHeaderEntry(in);
 
-      	// Construct a FileStatus object
-      	fstatus = new FileStatus(
-	          entry.getSize(),
-	          entry.isDirectory(),
-	          (int) underlying.getReplication(),
-	          underlying.getBlockSize(),
-	          entry.getModTime().getTime(),
-	          underlying.getAccessTime(),
-	          new FsPermission((short) entry.getMode()),
-	          entry.getUserName(),
-	          entry.getGroupName(),
-	          abs);
-      }
-      finally {
-      	org.apache.commons.io.IOUtils.closeQuietly(in);
+        if (!entry.getName().equals(inFile)) {
+          LOG.fatal(
+            "Index file is corrupt." +
+              "Requested filename is present in index " +
+              "but absent in TAR.");
+          throw new IOException("NBU-TAR: FATAL: entry file name " +
+            "does not match requested file name");
+        }
+
+        // Construct a FileStatus object
+        fstatus = new FileStatus(
+          entry.getSize(),
+          entry.isDirectory(),
+          (int) underlying.getReplication(),
+          underlying.getBlockSize(),
+          entry.getModTime().getTime(),
+          underlying.getAccessTime(),
+          new FsPermission((short) entry.getMode()),
+          entry.getUserName(),
+          entry.getGroupName(),
+          abs);
+      } finally {
+        IOUtils.closeQuietly(in);
       }
     }
 
@@ -330,14 +326,14 @@ public class TarFileSystem extends FileSystem {
 
   @Override
   public FSDataOutputStream create(Path f, FsPermission permission,
-      boolean overwrite, int bufferSize, short replication,
-      long blockSize, Progressable progress) throws IOException {
+    boolean overwrite, int bufferSize, short replication,
+    long blockSize, Progressable progress) throws IOException {
     throw new IOException(notSupportedMsg("Create"));
   }
 
   @Override
   public FSDataOutputStream append(Path f, int bufferSize,
-      Progressable progress) throws IOException {
+    Progressable progress) throws IOException {
     throw new IOException(notSupportedMsg("Append"));
   }
 

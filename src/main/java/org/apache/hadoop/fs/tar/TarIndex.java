@@ -124,12 +124,12 @@ public class TarIndex {
         if (writeOK == false) {
           Path p = altIndexP == null ? indexPath : altIndexP;
 
-          LOG.error("Could not create INDEX file " + p.toUri());
+          LOG.warn("Could not create INDEX file " + p.toUri());
           if (altIndexP == null)
             LOG.error("You can specify alternate location for index" +
                 " creation using tarfs.tmp.dir property.");
 
-          LOG.error("Skipping writing index file.");
+          LOG.warn("Skipping writing index file.");
         }
       }
     }
@@ -157,7 +157,7 @@ public class TarIndex {
   private boolean writeIndex(FileSystem fs, Path indexPath) throws IOException {
 
     if (fs.exists(indexPath)) {
-      LOG.error("Index file already exists. Skipping writing index.");
+      LOG.warn("Index file already exists. Skipping writing index.");
       return false;
     }
 

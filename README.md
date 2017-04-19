@@ -55,9 +55,9 @@ To access files inside this tar, simply prepone this with tar:// to make it a TA
 	[jd@node1 ~]$ bin/hadoop fs -ls tar:///tardemo/archive.tar ↲
 	13/07/15 20:33:04 INFO tar.TarFileSystem: *** Using Tar file system ***
 	Found 3 items
-	-rw-rw-r--   1 jd jd     502760 2013-07-15 20:27 /tardemo/archive.tar+/data+file2.txt
-	-rw-rw-r--   1 jd jd     594933 2013-07-15 20:26 /tardemo/archive.tar+/data+file1.txt
-	-rw-rw-r--   1 jd jd     641720 2013-07-15 20:27 /tardemo/archive.tar+/data+file3.txt
+	-rw-rw-r--   1 jd jd     502760 2013-07-15 20:27 /tardemo/archive.tar/+data+file2.txt
+	-rw-rw-r--   1 jd jd     594933 2013-07-15 20:26 /tardemo/archive.tar/+data+file1.txt
+	-rw-rw-r--   1 jd jd     641720 2013-07-15 20:27 /tardemo/archive.tar/+data+file3.txt
 
 To access a file inside a TAR archive, append the name of the file after the TAR URI using a ‘+’ sign. All sub-directory paths within a TAR archive are also defined using ‘+’ sign. For example, if the file is in path `dir1/dir2/file1.txt` within tar archive, use the following path to read it.
 

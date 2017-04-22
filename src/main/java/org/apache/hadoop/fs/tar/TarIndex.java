@@ -25,6 +25,7 @@ import java.util.HashMap;
 import java.util.Scanner;
 
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
+import org.apache.commons.io.IOUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
@@ -41,7 +42,7 @@ import org.apache.hadoop.security.AccessControlException;
  */
 public class TarIndex {
 
-  private HashMap<String, IndexEntry> index = new HashMap<String, IndexEntry>();
+  private HashMap<String, IndexEntry> index;
 
   public static final Log LOG = LogFactory.getLog(TarIndex.class);
   public static final String INDEX_EXT = ".index";
@@ -79,41 +80,13 @@ public class TarIndex {
     Path indexPath = getIndexPath(tarPath);
     Path altIndexP = getAltIndexPath(tarPath, conf);
 
-    boolean readOK = false;
-    readOK = readIndexFile(fs, indexPath);
+    index = readIndexFile(fs, indexPath);
 
-    if (readOK == false)
-      readOK = readIndexFile(fs, altIndexP);
+    if (index == null)
+      index = readIndexFile(fs, altIndexP);
 
-    if (readOK == false) {
-      FSDataInputStream is = fs.open(tarPath);
-      byte[] buffer = new byte[512];
-
-      while (true) {
-        int bytesRead = is.read(buffer);
-        if (bytesRead == -1)
-          break;
-        if (bytesRead < 512)
-          throw new IOException("Could not read the full header.");
-
-        long currOffset = is.getPos();
-        TarArchiveEntry entry = new TarArchiveEntry(buffer);
-
-        // Index only normal files. Do not support directories yet.
-        if (entry.isFile() && !entry.isDirectory()) {
-          String name = entry.getName().trim();
-          if (!name.equals("")) {
-            IndexEntry ie = new IndexEntry(entry.getSize(), currOffset);
-            index.put(name, ie);
-          }
-        }
-
-        long nextOffset = currOffset + entry.getSize();
-        if (nextOffset % 512 != 0)
-          nextOffset = ((nextOffset / 512) + 1) * 512;
-        is.seek(nextOffset);
-      }
-      is.close();
+    if (index == null) {
+      this.index = createIndex(fs, tarPath);
 
       if (isWrite) {
         boolean writeOK = writeIndex(fs, indexPath);
@@ -133,6 +106,47 @@ public class TarIndex {
         }
       }
     }
+  }
+
+  private HashMap<String, IndexEntry> createIndex(FileSystem fs, Path tarPath)
+    throws IOException {
+
+    HashMap<String, IndexEntry> index = new HashMap<>();
+
+    FSDataInputStream is = null;
+    try {
+      is = fs.open(tarPath);
+    byte[] buffer = new byte[512];
+
+    while (true) {
+      int bytesRead = is.read(buffer);
+      if (bytesRead == -1)
+        break;
+      if (bytesRead < 512)
+        throw new IOException("Could not read the full header.");
+
+      long currOffset = is.getPos();
+      TarArchiveEntry entry = new TarArchiveEntry(buffer);
+
+      // Index only normal files. Do not support directories yet.
+        if (entry.isFile() && !entry.isDirectory()) { // both isFile and isDir
+                                                      // could be true!
+        String name = entry.getName().trim();
+        if (!name.equals("")) {
+          IndexEntry ie = new IndexEntry(entry.getSize(), currOffset);
+          index.put(name, ie);
+        }
+      }
+
+      long nextOffset = currOffset + entry.getSize();
+      if (nextOffset % 512 != 0)
+        nextOffset = ((nextOffset / 512) + 1) * 512;
+      is.seek(nextOffset);
+    }
+    } finally {
+      IOUtils.closeQuietly(is);
+    }
+    return index;
   }
 
   private Path getIndexPath(Path tarPath) {
@@ -184,11 +198,13 @@ public class TarIndex {
     }
   }
 
-  private boolean readIndexFile(FileSystem fs, Path indexPath)
+  private
+    HashMap<String, IndexEntry> readIndexFile(FileSystem fs, Path indexPath)
       throws IOException {
 
+    HashMap<String, IndexEntry> index = new HashMap<>();
     if (indexPath == null || !fs.exists(indexPath))
-      return false;
+      return null;
 
     FSDataInputStream is = null;
     Scanner s = null;
@@ -201,7 +217,7 @@ public class TarIndex {
         String[] tokens = s.nextLine().split(" ");
         if (tokens.length != 3) {
           LOG.error("Invalid Index File: " + indexPath);
-          return false;
+          return null;
         }
 
         IndexEntry ie = new IndexEntry(
@@ -209,11 +225,11 @@ public class TarIndex {
             Long.parseLong(tokens[2]));
         index.put(tokens[0], ie);
       }
-      return true;
+      return index;
     } catch (AccessControlException e) {
       LOG.error("Can not open Index file for reading " + indexPath + " "
           + e.getMessage());
-      return false;
+      return null;
     } finally {
       if (s != null)
         s.close();

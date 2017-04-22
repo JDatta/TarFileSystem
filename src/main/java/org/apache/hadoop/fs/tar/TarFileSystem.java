@@ -206,7 +206,34 @@ public class TarFileSystem extends FileSystem {
 
     // if subfile exists in the path, just return the status of that
     if (inFile != null) {
-      ret.add(getFileStatus(abs));
+      FileStatus fileStatus = getFileStatus(abs);
+      if (fileStatus.isDirectory()) {
+        // TODO this code is added to repro a use case. Remove this.
+        // add a dummy dir and file inside every dir
+        FileStatus child1 = new FileStatus(1024L,
+          true,
+          fileStatus.getReplication(),
+          fileStatus.getBlockSize(), 0,
+          0,
+          fileStatus.getPermission(),
+          fileStatus.getOwner(),
+          fileStatus.getGroup(),
+          new Path(
+            fileStatus.getPath().toUri().toString() + "+dummyDir+dummyFile"));
+        ret.add(child1);
+        FileStatus child2 = new FileStatus(1024L,
+          false,
+          fileStatus.getReplication(),
+          fileStatus.getBlockSize(), 0,
+          0,
+          fileStatus.getPermission(),
+          fileStatus.getOwner(),
+          fileStatus.getGroup(),
+          new Path(fileStatus.getPath().toUri().toString() + "+dummyFile"));
+        ret.add(child2);
+      } else {
+        ret.add(fileStatus);
+      }
     }
 
     else {
@@ -288,6 +315,12 @@ public class TarFileSystem extends FileSystem {
         in.seek(offset - 512);
         TarArchiveEntry entry = readHeaderEntry(in);
 
+        // TODO Remove this instrumentation code
+        if (entry.isDirectory()) {
+          System.out.println("isFile = " + entry.isFile()
+            + " isDir=" + entry.isDirectory());
+        }
+        System.out.println(entry.isFile());
         if (!entry.getName().equals(inFile)) {
           LOG.fatal(
             "Index file is corrupt." +

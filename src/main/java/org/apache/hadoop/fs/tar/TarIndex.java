@@ -100,7 +100,7 @@ public class TarIndex {
         TarArchiveEntry entry = new TarArchiveEntry(buffer);
 
         // Index only normal files. Do not support directories yet.
-        if (entry.isFile()) {
+        if (entry.isFile() && !entry.isDirectory()) {
           String name = entry.getName().trim();
           if (!name.equals("")) {
             IndexEntry ie = new IndexEntry(entry.getSize(), currOffset);
